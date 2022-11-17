@@ -2,7 +2,7 @@
 .idea/
 target/
 */.DS_Store
-*.yml
+#*.yml
 .DS_Store
 .classpath
 .project

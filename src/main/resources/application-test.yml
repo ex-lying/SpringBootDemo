@@ -1,3 +1,5 @@
 spring:
-  profiles:
-    active: test
+  main:
+    allow-bean-definition-overriding: true
+    # 不用于web开发
+    web-application-type: none
