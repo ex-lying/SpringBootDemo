@@ -3,3 +3,14 @@ spring:
     allow-bean-definition-overriding: true
     # 不用于web开发
     web-application-type: none
+
+  mqtt:
+    url: ssl://192.168.102.17:52000
+    username: JavaMQTT
+    password: JAVAMQTT_BATTERY0
+    client_id: thcl-qiaotong-server-ly
+    ca_file: /home/liying/files/mqtt/ca.crt
+    cert_file: /home/liying/files/mqtt/server.crt
+    key_file: /home/liying/files/mqtt/server.key
+    tls_version: 2
+    default_topic: default_topic
