@@ -7,6 +7,8 @@ import springboot.demo.script.thingModel.service.ThingModelService;
 import tool.util.JsonUtil;
 import tool.util.LogUtil;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -18,17 +20,16 @@ import java.util.Map;
 public class ThingModelExcelListener extends AnalysisEventListener<ThingModelExcel> {
     private final static LogUtil log = new LogUtil(ThingModelExcelListener.class);
 
-    private ThingModelService thingModelService;
+    private final List<ThingModelExcel> excels=new ArrayList<>();
 
-    public ThingModelExcelListener(ThingModelService thingModelService) {
-        this.thingModelService = thingModelService;
+    public ThingModelExcelListener() {
     }
 
     @Override
     public void invoke(ThingModelExcel thingModelExcel, AnalysisContext analysisContext) {
         log.info("物模型表格内容:" + JsonUtil.toJson(thingModelExcel));
 
-        thingModelService.insertThingModel(thingModelExcel);
+        excels.add(thingModelExcel);
     }
 
     @Override
@@ -41,6 +42,10 @@ public class ThingModelExcelListener extends AnalysisEventListener<ThingModelExc
     @Override
     public void doAfterAllAnalysed(AnalysisContext analysisContext) {
         log.info("物模型表格读取后执行操作。");
+    }
+
+    public List<ThingModelExcel> getExcels(){
+        return this.excels;
     }
 
 }

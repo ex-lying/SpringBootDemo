@@ -4,6 +4,7 @@ import com.alibaba.excel.EasyExcel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +18,7 @@ import tool.util.JsonUtil;
 import tool.util.LogUtil;
 
 import java.io.File;
+import java.util.List;
 
 /**
  * @className: ReadExcelToMysql
@@ -34,7 +36,7 @@ public class ThingModelExcelController {
 
     @GetMapping("/thingModel/readExcel")
     public void readExcel(@RequestParam String sourcePath) {
-        if(StringUtils.isEmpty(sourcePath)){
+        if (StringUtils.isEmpty(sourcePath)) {
             sourcePath = "src/main/resources/thingModelExcel";
         }
 
@@ -44,12 +46,22 @@ public class ThingModelExcelController {
 
         for (File file : files) {
             if (ExcelUtil.checkExcelExtension(file)) {
-                log.info("开始处理表格:"+file.getPath());
+                log.info("开始处理表格:" + file.getPath());
 
-                EasyExcel.read(file.getPath(), ThingModelExcel.class, new ThingModelExcelListener(thingModelService)).sheet().doRead();
+                ThingModelExcelListener listener = new ThingModelExcelListener();
+
+                EasyExcel.read(file.getPath(), ThingModelExcel.class, listener).sheet().doRead();
+
+                List<ThingModelExcel> excels = listener.getExcels();
+
+                if (!CollectionUtils.isEmpty(excels)) {
+                    excels.forEach(excel -> {
+                        thingModelService.insertThingModel(excel);
+                    });
+                }
             }
         }
 
-        log.error("添加失败的物模型:"+ JsonUtil.toJson(ThingModelService.errorExcel));
+        log.error("添加失败的物模型:" + JsonUtil.toJson(ThingModelService.errorExcel));
     }
 }

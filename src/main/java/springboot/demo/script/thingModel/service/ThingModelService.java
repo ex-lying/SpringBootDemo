@@ -19,6 +19,7 @@ import springboot.demo.mysql.model.ThingModelProductDetail;
 import springboot.demo.mysql.vo.IotPropertyTranslateBo;
 import springboot.demo.mysql.vo.ThingModelSpecs;
 import springboot.demo.mysql.vo.specs.*;
+import tool.util.ExceptionUtil;
 import tool.util.JsonUtil;
 import tool.util.LogUtil;
 
@@ -43,7 +44,7 @@ public class ThingModelService {
     private static final String DEFAULT_SHOW_TYPE = "details";
 
     //未成功添加列表
-    public static Map<ThingModelExcel, String> errorExcel = new HashMap<>();
+    public static Map<String, String> errorExcel = new HashMap<>();
 
     //系列品牌主板标识列表
     private static final Map<String, Map<String, List<String>>> serailBrandMainboardMap;
@@ -143,166 +144,182 @@ public class ThingModelService {
 
     @Transactional(rollbackFor = RuntimeException.class)
     public Boolean insertThingModel(ThingModelExcel thingModelExcel) {
-        if (!validateExcel(thingModelExcel)) {
-            return false;
-        }
-
-        ThingModelSpecs specs = null;
-
         try {
-            specs = validateSpecs(thingModelExcel.getSpecs(), thingModelExcel.getType(), thingModelExcel.getIsEarlyWarning());
+            if (!validateExcel(thingModelExcel)) {
+                return false;
+            }
+
+            ThingModelSpecs specs = validateSpecs(thingModelExcel.getSpecs(), thingModelExcel.getType(), thingModelExcel.getIsEarlyWarning());
+
+            QueryWrapper<ThingModel> thingModelQueryWrapper = new QueryWrapper<>();
+            thingModelQueryWrapper.eq("project", thingModelExcel.getProject());
+
+            ThingModel thingModel = thingModelMapper.selectOne(thingModelQueryWrapper);
+
+            if (thingModel == null) {
+
+                thingModel = new ThingModel()
+                        .setProject(thingModelExcel.getProject())
+                        .setIsDefault(1)
+                        .setIsEfficient(1)
+                        .setCreateTime(LocalDateTime.now())
+                        .setCreateUser("System")
+                        .setUpdateTime(LocalDateTime.now())
+                        .setUpdateUser("System");
+
+                thingModelMapper.insert(thingModel);
+            } else {
+                thingModel
+                        .setUpdateTime(LocalDateTime.now())
+                        .setUpdateUser("System");
+
+                thingModelMapper.updateById(thingModel);
+            }
+
+            QueryWrapper<ThingModelProduct> tmpQueryWrapper = new QueryWrapper<>();
+            tmpQueryWrapper
+                    .eq("thing_model_id", thingModel.getId())
+                    .eq("serial", thingModelExcel.getSerial())
+                    .eq("brand", thingModelExcel.getBrand())
+                    .eq("mainboard", thingModelExcel.getMainboard());
+
+            ThingModelProduct thingModelProduct = thingModelProductMapper.selectOne(tmpQueryWrapper);
+
+            if (thingModelProduct == null) {
+                thingModelProduct = new ThingModelProduct()
+                        .setThingModelId(thingModel.getId())
+                        .setSerial(thingModelExcel.getSerial())
+                        .setBrand(thingModelExcel.getBrand())
+                        .setMainboard(thingModelExcel.getMainboard())
+                        .setIsEfficient(1)
+                        .setCreateTime(LocalDateTime.now())
+                        .setCreateUser("System")
+                        .setUpdateTime(LocalDateTime.now())
+                        .setUpdateUser("System");
+
+                thingModelProductMapper.insert(thingModelProduct);
+            } else {
+                thingModelProduct
+                        .setUpdateTime(LocalDateTime.now())
+                        .setUpdateUser("System");
+
+                thingModelProductMapper.updateById(thingModelProduct);
+            }
+
+            QueryWrapper<ThingModelProductDetail> tmpdQueryWrapper = new QueryWrapper<>();
+            tmpdQueryWrapper.eq("thing_model_product_id", thingModelProduct.getId())
+                    .and(wrapper -> {
+                        wrapper
+                                .eq("identifier", thingModelExcel.getIdentifier())
+                                .or()
+                                .eq("name", thingModelExcel.getName())
+                                .or()
+                                .eq("sort", thingModelExcel.getOrder());
+
+                    });
+
+            ThingModelProductDetail tmpd = thingModelProductDetailMapper.selectOne(tmpdQueryWrapper);
+
+            if (tmpd != null) {
+                log.error("物模型重复添加:" + JsonUtil.toJson(thingModelExcel));
+            } else {
+                tmpd = new ThingModelProductDetail()
+                        .setThingModelProductId(thingModelProduct.getId())
+                        .setName(thingModelExcel.getName())
+                        .setIdentifier(thingModelExcel.getIdentifier())
+                        .setSort(thingModelExcel.getOrder())
+                        .setSpecs(JsonUtil.toJson(specs))
+                        .setType(thingModelExcel.getType())
+                        .setExpectedValue(thingModelExcel.getExpectedValue())
+                        .setUnits(thingModelExcel.getUnits())
+                        .setIsEarlyWarning(thingModelExcel.getIsEarlyWarning())
+                        .setIsEfficient(1)
+                        .setCategory(DEFAULT_SHOW_TYPE)
+                        .setCreateUser("System")
+                        .setCreateTime(LocalDateTime.now())
+                        .setUpdateUser("System")
+                        .setUpdateTime(LocalDateTime.now());
+
+                thingModelProductDetailMapper.insert(tmpd);
+
+                IotPropertyTranslateBo bo = new IotPropertyTranslateBo()
+                        .setProject(thingModel.getProject())
+                        .setOriginProject(thingModel.getProject())
+                        .setSerial(thingModelProduct.getSerial())
+                        .setOriginSerial(thingModelProduct.getSerial())
+                        .setBrand(thingModelProduct.getBrand())
+                        .setOriginBrand(thingModelProduct.getBrand())
+                        .setMainboard(thingModelProduct.getMainboard())
+                        .setOriginMainboard(thingModelProduct.getMainboard())
+                        .setIdentifier(tmpd.getIdentifier())
+                        .setOriginIdentifier(tmpd.getIdentifier())
+                        .setName(tmpd.getName())
+                        .setSort(tmpd.getSort())
+                        .setSpecs(tmpd.getSpecs())
+                        .setType(tmpd.getType())
+                        .setExpectedValue(tmpd.getExpectedValue())
+                        .setUnits(tmpd.getUnits())
+                        .setIsEarlyWarning(tmpd.getIsEarlyWarning())
+                        .setOperateType(OPERATE_ADD);
+
+                sendIotPropertyTranslate(List.of(bo));
+            }
         } catch (Exception e) {
-            errorExcel.put(thingModelExcel, e.getMessage());
+            String errorMsg = StringUtils.isEmpty(e.getMessage()) ? ExceptionUtil.StackTracetoString(e) : e.getMessage();
+
+            errorExcel.put(JsonUtil.toJson(thingModelExcel), errorMsg);
 
             return false;
-        }
-
-        QueryWrapper<ThingModel> thingModelQueryWrapper = new QueryWrapper<>();
-        thingModelQueryWrapper.eq("project", thingModelExcel.getProject());
-
-        ThingModel thingModel = thingModelMapper.selectOne(thingModelQueryWrapper);
-
-        if (thingModel == null) {
-
-            thingModel = new ThingModel()
-                    .setProject(thingModelExcel.getProject())
-                    .setIsDefault(1)
-                    .setIsEfficient(1)
-                    .setCreateTime(LocalDateTime.now())
-                    .setCreateUser("System")
-                    .setUpdateTime(LocalDateTime.now())
-                    .setUpdateUser("System");
-
-            thingModelMapper.insert(thingModel);
-        } else {
-            thingModel
-                    .setUpdateTime(LocalDateTime.now())
-                    .setUpdateUser("System");
-
-            thingModelMapper.updateById(thingModel);
-        }
-
-        QueryWrapper<ThingModelProduct> tmpQueryWrapper = new QueryWrapper<>();
-        tmpQueryWrapper
-                .eq("thing_model_id", thingModel.getId())
-                .eq("serial", thingModelExcel.getSerial())
-                .eq("brand", thingModelExcel.getBrand())
-                .eq("mainboard", thingModelExcel.getMainboard());
-
-        ThingModelProduct thingModelProduct = thingModelProductMapper.selectOne(tmpQueryWrapper);
-
-        if (thingModelProduct == null) {
-            thingModelProduct = new ThingModelProduct()
-                    .setThingModelId(thingModel.getId())
-                    .setSerial(thingModelExcel.getSerial())
-                    .setBrand(thingModelExcel.getBrand())
-                    .setMainboard(thingModelExcel.getMainboard())
-                    .setIsEfficient(1)
-                    .setCreateTime(LocalDateTime.now())
-                    .setCreateUser("System")
-                    .setUpdateTime(LocalDateTime.now())
-                    .setUpdateUser("System");
-
-            thingModelProductMapper.insert(thingModelProduct);
-        } else {
-            thingModelProduct
-                    .setUpdateTime(LocalDateTime.now())
-                    .setUpdateUser("System");
-
-            thingModelProductMapper.updateById(thingModelProduct);
-        }
-
-        QueryWrapper<ThingModelProductDetail> tmpdQueryWrapper = new QueryWrapper<>();
-        tmpdQueryWrapper.eq("thing_model_product_id", thingModelProduct.getId())
-                .and(wrapper -> {
-                    wrapper
-                            .eq("identifier", thingModelExcel.getIdentifier())
-                            .or()
-                            .eq("name", thingModelExcel.getName())
-                            .or()
-                            .eq("sort", thingModelExcel.getOrder());
-
-                });
-
-        ThingModelProductDetail tmpd = thingModelProductDetailMapper.selectOne(tmpdQueryWrapper);
-
-        if (tmpd != null) {
-            log.error("物模型重复添加:" + JsonUtil.toJson(thingModelExcel));
-
-            errorExcel.put(thingModelExcel, "物模型重复添加");
-        } else {
-            tmpd = new ThingModelProductDetail()
-                    .setThingModelProductId(thingModelProduct.getId())
-                    .setName(thingModelExcel.getName())
-                    .setIdentifier(thingModelExcel.getIdentifier())
-                    .setSort(thingModelExcel.getOrder())
-                    .setSpecs(JsonUtil.toJson(specs))
-                    .setType(thingModelExcel.getType())
-                    .setExpectedValue(thingModelExcel.getExpectedValue())
-                    .setUnits(thingModelExcel.getUnits())
-                    .setIsEarlyWarning(thingModelExcel.getIsEarlyWarning())
-                    .setIsEfficient(1)
-                    .setCategory(DEFAULT_SHOW_TYPE)
-                    .setCreateUser("System")
-                    .setCreateTime(LocalDateTime.now())
-                    .setUpdateUser("System")
-                    .setUpdateTime(LocalDateTime.now());
-
-            thingModelProductDetailMapper.insert(tmpd);
-
-            IotPropertyTranslateBo bo = new IotPropertyTranslateBo()
-                    .setProject(thingModel.getProject())
-                    .setOriginProject(thingModel.getProject())
-                    .setSerial(thingModelProduct.getSerial())
-                    .setOriginSerial(thingModelProduct.getSerial())
-                    .setBrand(thingModelProduct.getBrand())
-                    .setOriginBrand(thingModelProduct.getBrand())
-                    .setMainboard(thingModelProduct.getMainboard())
-                    .setOriginMainboard(thingModelProduct.getMainboard())
-                    .setIdentifier(tmpd.getIdentifier())
-                    .setOriginIdentifier(tmpd.getIdentifier())
-                    .setName(tmpd.getName())
-                    .setSort(tmpd.getSort())
-                    .setSpecs(tmpd.getSpecs())
-                    .setType(tmpd.getType())
-                    .setExpectedValue(tmpd.getExpectedValue())
-                    .setUnits(tmpd.getUnits())
-                    .setIsEarlyWarning(tmpd.getIsEarlyWarning())
-                    .setOperateType(OPERATE_ADD);
-
-            sendIotPropertyTranslate(List.of(bo));
         }
 
         return true;
     }
 
     private Boolean validateExcel(ThingModelExcel thingModelExcel) {
+        if (StringUtils.isEmpty(thingModelExcel.getProject())) {
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型名称不能为空");
+
+            return false;
+        }
+
         if (thingModelExcel.getProject().length() > 16) {
-            ThingModelService.errorExcel.put(thingModelExcel, "物模型名称不能超过16个字符");
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型名称不能超过16个字符");
+
+            return false;
+        }
+
+        if (StringUtils.isEmpty(thingModelExcel.getIdentifier())) {
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型功能标识符不能为空");
 
             return false;
         }
 
         if (thingModelExcel.getIdentifier().length() > 24) {
-            ThingModelService.errorExcel.put(thingModelExcel, "物模型功能标识符不能超过24个字符");
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型功能标识符不能超过24个字符");
+
+            return false;
+        }
+
+        if (StringUtils.isEmpty(thingModelExcel.getName())) {
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型功能名称不能为空");
 
             return false;
         }
 
         if (thingModelExcel.getName().length() > 12) {
-            ThingModelService.errorExcel.put(thingModelExcel, "物模型功能名称不能超过12个字符");
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型功能名称不能超过12个字符");
 
             return false;
         }
 
-        if (thingModelExcel.getExpectedValue().length() > 24) {
-            ThingModelService.errorExcel.put(thingModelExcel, "物模型功能期望值不能超过24个字符");
+        if (!StringUtils.isEmpty(thingModelExcel.getExpectedValue()) && thingModelExcel.getExpectedValue().length() > 24) {
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型功能期望值不能超过24个字符");
 
             return false;
         }
 
-        if (thingModelExcel.getUnits().length() > 8) {
-            ThingModelService.errorExcel.put(thingModelExcel, "物模型功能单位不能超过8个字符");
+        if (!StringUtils.isEmpty(thingModelExcel.getUnits()) && thingModelExcel.getUnits().length() > 8) {
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型功能单位不能超过8个字符");
 
             return false;
         }
@@ -310,7 +327,7 @@ public class ThingModelService {
         Map<String, List<String>> brandMap = serailBrandMainboardMap.get(thingModelExcel.getSerial());
 
         if (CollectionUtils.isEmpty(brandMap)) {
-            ThingModelService.errorExcel.put(thingModelExcel, "Serial 超出范围");
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "Serial 超出范围");
 
             return false;
         }
@@ -318,25 +335,25 @@ public class ThingModelService {
         List<String> mainboardList = brandMap.get(thingModelExcel.getBrand());
 
         if (CollectionUtils.isEmpty(mainboardList)) {
-            ThingModelService.errorExcel.put(thingModelExcel, "Brand 超出范围");
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "Brand 超出范围");
 
             return false;
         }
 
-        if (mainboardList.contains(thingModelExcel.getMainboard())) {
-            ThingModelService.errorExcel.put(thingModelExcel, "Mainboard 超出范围");
+        if (!mainboardList.contains(thingModelExcel.getMainboard())) {
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "Mainboard 超出范围");
 
             return false;
         }
 
-        if (typeList.contains(thingModelExcel.getType())) {
-            ThingModelService.errorExcel.put(thingModelExcel, "Type 超出范围");
+        if (!typeList.contains(thingModelExcel.getType())) {
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "Type 超出范围");
 
             return false;
         }
 
-        if (isEarlyWarningList.contains(thingModelExcel.getIsEarlyWarning())) {
-            ThingModelService.errorExcel.put(thingModelExcel, "IsEarlyWarning 超出范围");
+        if (!isEarlyWarningList.contains(thingModelExcel.getIsEarlyWarning())) {
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "IsEarlyWarning 超出范围");
 
             return false;
         }
@@ -353,104 +370,112 @@ public class ThingModelService {
             return new ThingModelSpecs();
         }
 
-        if (type.equals("string")) {
-            return JsonUtil.fromJson(specs, TMStringSpecs.class);
-        } else if (type.equals("date")) {
-            return JsonUtil.fromJson(specs, TMDateSpecs.class);
-        } else if (type.equals("array")) {
-            return JsonUtil.fromJson(specs, TMArraySpecs.class);
-        } else if (type.equals("bool")) {
-            Map<Object, Object> tmBoolSpecsMap = JsonUtil.fromJson(specs);
+        try{
+            if (type.equals("string")) {
+                return JsonUtil.fromJson(specs, TMStringSpecs.class);
+            } else if (type.equals("date")) {
+                return JsonUtil.fromJson(specs, TMDateSpecs.class);
+            } else if (type.equals("array")) {
+                return JsonUtil.fromJson(specs, TMArraySpecs.class);
+            } else if (type.equals("bool")) {
+                Map<Object, Object> tmBoolSpecsMap = JsonUtil.fromJson(specs);
 
-            if (tmBoolSpecsMap.size() > 2) {
-                throw new Exception("bool值配置超出范围");
+                if (tmBoolSpecsMap.size() > 2) {
+                    throw new Exception("bool值配置超出范围");
+                }
+
+                List<Map<String, String>> boolConfigList = new ArrayList<>();
+
+                tmBoolSpecsMap.forEach((key, value) -> {
+                    String keyStr = key.toString();
+                    String valueStr = value.toString();
+
+                    if (keyStr.length() > 8) {
+                        throw new RuntimeException("bool值key不能超过8个字符");
+                    }
+
+                    if (valueStr.length() > 12) {
+                        throw new RuntimeException("bool值value不能超过12个字符");
+                    }
+
+                    Map<String, String> boolMap = new HashMap<>();
+                    boolMap.put("key", key.toString());
+                    boolMap.put("value", value.toString());
+
+                    boolConfigList.add(boolMap);
+                });
+
+                TMBoolSpecs tmBoolSpecs = new TMBoolSpecs();
+                tmBoolSpecs.setBoolConfigList(boolConfigList);
+
+                return tmBoolSpecs;
+            } else if (type.equals("enum")) {
+                Map<Object, Object> tmEnumSpecsMap = JsonUtil.fromJson(specs);
+
+                List<Map<String, String>> enumConfigList = new ArrayList<>();
+
+                tmEnumSpecsMap.forEach((key, value) -> {
+                    String keyStr = key.toString();
+                    String valueStr = value.toString();
+
+                    if (keyStr.length() > 8) {
+                        throw new RuntimeException("枚举值key不能超过8个字符");
+                    }
+
+                    if (valueStr.length() > 12) {
+                        throw new RuntimeException("枚举值value不能超过16个字符");
+                    }
+
+                    Map<String, String> boolMap = new HashMap<>();
+                    boolMap.put("key", key.toString());
+                    boolMap.put("value", value.toString());
+
+                    enumConfigList.add(boolMap);
+                });
+
+                TMEnumSpecs tmEnumSpecs = new TMEnumSpecs();
+                tmEnumSpecs.setEnumConfigList(enumConfigList);
+
+                return tmEnumSpecs;
+            } else if (type.equals("double")) {
+                TMDoubleSpecs tmDoubleSpecs = JSONObject.parseObject(specs, TMDoubleSpecs.class);
+
+                if (isEarlyWarning == 1) {
+                    if (tmDoubleSpecs.getMin() == null || tmDoubleSpecs.getMax() == null) {
+                        throw new Exception("物模型功能选择需要预警后，最大值最小值不可为空");
+                    }
+                }
+
+                return tmDoubleSpecs;
+            } else if (type.equals("float")) {
+                TMFloatSpecs tmFloatSpecs = JSONObject.parseObject(specs, TMFloatSpecs.class);
+
+                if (isEarlyWarning == 1) {
+                    if (tmFloatSpecs.getMin() == null || tmFloatSpecs.getMax() == null) {
+                        throw new Exception("物模型功能选择需要预警后，最大值最小值不可为空");
+                    }
+                }
+
+                return tmFloatSpecs;
+            } else if (type.equals("int")) {
+                TMIntSpecs tmIntSpecs = JSONObject.parseObject(specs, TMIntSpecs.class);
+
+                if (isEarlyWarning == 1) {
+                    if (tmIntSpecs.getMin() == null || tmIntSpecs.getMax() == null) {
+                        throw new Exception("物模型功能选择需要预警后，最大值最小值不可为空");
+                    }
+                }
+
+                return tmIntSpecs;
+            } else {
+                return JSONObject.parseObject(specs, ThingModelSpecs.class);
             }
-
-            List<Map<String, String>> boolConfigList = new ArrayList<>();
-
-            tmBoolSpecsMap.forEach((key, value) -> {
-                String keyStr = key.toString();
-                String valueStr = value.toString();
-
-                if (keyStr.length() > 8) {
-                    throw new RuntimeException("bool值key不能超过8个字符");
-                }
-
-                if (valueStr.length() > 12) {
-                    throw new RuntimeException("bool值value不能超过12个字符");
-                }
-
-                Map<String, String> boolMap = new HashMap<>();
-                boolMap.put("key", key.toString());
-                boolMap.put("value", value.toString());
-
-                boolConfigList.add(boolMap);
-            });
-
-            TMBoolSpecs tmBoolSpecs = new TMBoolSpecs();
-            tmBoolSpecs.setBoolConfigList(boolConfigList);
-
-            return tmBoolSpecs;
-        } else if (type.equals("enum")) {
-            Map<Object, Object> tmEnumSpecsMap = JsonUtil.fromJson(specs);
-
-            List<Map<String, String>> enumConfigList = new ArrayList<>();
-
-            tmEnumSpecsMap.forEach((key, value) -> {
-                String keyStr = key.toString();
-                String valueStr = value.toString();
-
-                if (keyStr.length() > 8) {
-                    throw new RuntimeException("枚举值key不能超过8个字符");
-                }
-
-                if (valueStr.length() > 12) {
-                    throw new RuntimeException("枚举值value不能超过16个字符");
-                }
-
-                Map<String, String> boolMap = new HashMap<>();
-                boolMap.put("key", key.toString());
-                boolMap.put("value", value.toString());
-
-                enumConfigList.add(boolMap);
-            });
-
-            TMEnumSpecs tmEnumSpecs = new TMEnumSpecs();
-            tmEnumSpecs.setEnumConfigList(enumConfigList);
-
-            return tmEnumSpecs;
-        } else if (type.equals("double")) {
-            TMDoubleSpecs tmDoubleSpecs = JSONObject.parseObject(specs, TMDoubleSpecs.class);
-
-            if (isEarlyWarning == 1) {
-                if (tmDoubleSpecs.getMin() == null || tmDoubleSpecs.getMax() == null) {
-                    throw new Exception("物模型功能选择需要预警后，最大值最小值不可为空");
-                }
+        }catch (Exception e){
+            if(StringUtils.isEmpty(e.getMessage())){
+                throw new Exception("specs json 格式化出错");
+            }else {
+                throw new Exception(e.getMessage());
             }
-
-            return tmDoubleSpecs;
-        } else if (type.equals("float")) {
-            TMFloatSpecs tmFloatSpecs = JSONObject.parseObject(specs, TMFloatSpecs.class);
-
-            if (isEarlyWarning == 1) {
-                if (tmFloatSpecs.getMin() == null || tmFloatSpecs.getMax() == null) {
-                    throw new Exception("物模型功能选择需要预警后，最大值最小值不可为空");
-                }
-            }
-
-            return tmFloatSpecs;
-        } else if (type.equals("int")) {
-            TMIntSpecs tmIntSpecs = JSONObject.parseObject(specs, TMIntSpecs.class);
-
-            if (isEarlyWarning == 1) {
-                if (tmIntSpecs.getMin() == null || tmIntSpecs.getMax() == null) {
-                    throw new Exception("物模型功能选择需要预警后，最大值最小值不可为空");
-                }
-            }
-
-            return tmIntSpecs;
-        } else {
-            return JSONObject.parseObject(specs, ThingModelSpecs.class);
         }
     }
 

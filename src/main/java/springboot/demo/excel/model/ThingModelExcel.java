@@ -43,9 +43,9 @@ public class ThingModelExcel {
     @ExcelProperty(value = "Units", index = 9)
     private String Units;
 
-    @ExcelProperty(value = "Order", index = 10)
+    @ExcelProperty(value = "Order", index = 11)
     private Integer Order;
 
-    @ExcelProperty(value = "IsEarlyWarning", index = 11)
+    @ExcelProperty(value = "IsEarlyWarning", index = 10)
     private Integer IsEarlyWarning;
 }
