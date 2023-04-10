@@ -212,9 +212,7 @@ public class ThingModelService {
                         wrapper
                                 .eq("identifier", thingModelExcel.getIdentifier())
                                 .or()
-                                .eq("name", thingModelExcel.getName())
-                                .or()
-                                .eq("sort", thingModelExcel.getOrder());
+                                .eq("name", thingModelExcel.getName());
 
                     });
 
@@ -223,6 +221,18 @@ public class ThingModelService {
             if (tmpd != null) {
                 log.error("物模型重复添加:" + JsonUtil.toJson(thingModelExcel));
             } else {
+                QueryWrapper<ThingModelProductDetail> tmpdQueryWrapper2 = new QueryWrapper<>();
+                tmpdQueryWrapper2.eq("thing_model_product_id", thingModelProduct.getId())
+                        .eq("sort", thingModelExcel.getOrder());
+
+                tmpd = thingModelProductDetailMapper.selectOne(tmpdQueryWrapper2);
+
+                if (tmpd != null) {
+                    errorExcel.put(JsonUtil.toJson(thingModelExcel), "序号重复");
+
+                    return false;
+                }
+
                 tmpd = new ThingModelProductDetail()
                         .setThingModelProductId(thingModelProduct.getId())
                         .setName(thingModelExcel.getName())
@@ -370,7 +380,7 @@ public class ThingModelService {
             return new ThingModelSpecs();
         }
 
-        try{
+        try {
             if (type.equals("string")) {
                 return JsonUtil.fromJson(specs, TMStringSpecs.class);
             } else if (type.equals("date")) {
@@ -470,10 +480,10 @@ public class ThingModelService {
             } else {
                 return JSONObject.parseObject(specs, ThingModelSpecs.class);
             }
-        }catch (Exception e){
-            if(StringUtils.isEmpty(e.getMessage())){
+        } catch (Exception e) {
+            if (StringUtils.isEmpty(e.getMessage())) {
                 throw new Exception("specs json 格式化出错");
-            }else {
+            } else {
                 throw new Exception(e.getMessage());
             }
         }
