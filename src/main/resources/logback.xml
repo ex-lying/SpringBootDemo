@@ -1,0 +1,55 @@
+<!--http://logback.qos.ch/manual/appenders.html-->
+<configuration>
+    <property name="logPath" value="/home/liying/logs/spring-boot-demo/" scope="CONTEXT"/>
+    <property name="maxFileSize" value="500" scope="CONTEXT"/>
+    <property name="maxHistory" value="5" scope="CONTEXT"/>
+    <property name="totalSizeCap" value="32" scope="CONTEXT"/>
+    <property name="pattern" value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5thread %-5level %logger --- %msg%n" scope="CONTEXT"/>
+    <property name="level" value="info" scope="CONTEXT"/>
+
+
+    <appender name="MAIN" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>/home/liying/logs/spring-boot-demo/error.log</file>
+        <append>true</append>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- daily rollover -->
+            <fileNamePattern>/home/liying/logs/thcl-platform-service/error.%d{yyyy-MM-dd}-%i.log.zip</fileNamePattern>
+
+            <!-- each file should be at most 100MB, keep 30 days worth of history, but at most 3GB -->
+            <maxHistory>30</maxHistory>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>500MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5thread %-5level %logger --- %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!--ConsoleAppender 指定往控制台打印的日志-->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <!--定義了一個過濾器,在LEVEL之下的日誌輸出不會被打印出來-->
+        <!--這裡定義了DEBUG，也就是控制檯不會輸出比ERROR級別小的日誌-->
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>DEBUG</level>
+        </filter>
+        <!-- encoder 預設配置為PatternLayoutEncoder -->
+        <!--定義控制檯輸出格式-->
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5thread %-5level %logger --- %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="MAIN"/>
+        <appender-ref ref="STDOUT"/>
+    </appender>
+
+    <root level="debug">
+        <appender-ref ref="MAIN"/>
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+    <logger name="demo" level="debug"/>
+</configuration>

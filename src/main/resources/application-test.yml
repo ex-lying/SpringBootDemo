@@ -1,8 +1,10 @@
+server:
+  port: 18999
 spring:
   main:
     allow-bean-definition-overriding: true
     # 不用于web开发
-    web-application-type: none
+    #web-application-type: none
 
   mqtt:
     url: ssl://192.168.102.17:52000
@@ -14,3 +16,58 @@ spring:
     key_file: /home/liying/files/mqtt/server.key
     tls_version: 2
     default_topic: default_topic
+
+  datasource:
+    type: com.zaxxer.hikari.HikariDataSource
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 15
+      auto-commit: true
+      idle-timeout: 30000
+      pool-name: DatebookHikariCP
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      connection-test-query: SELECT 1
+    write:
+      jdbc-url: jdbc:mysql://192.168.102.17:3306/thcl?serverTimezone=Asia/Shanghai&useUnicode=yes&characterEncoding=UTF-8
+      username: thcl
+      password: oomoeyaij5Ahp6teipia
+      driver-class-name: com.mysql.cj.jdbc.Driver
+
+    read:
+      jdbc-url: jdbc:mysql://192.168.102.17:3306/thcl?serverTimezone=Asia/Shanghai&useUnicode=yes&characterEncoding=UTF-8
+      username: thcl
+      password: oomoeyaij5Ahp6teipia
+      driver-class-name: com.mysql.cj.jdbc.Driver
+
+  redis:
+    host: 192.168.102.17
+    port: 6379
+    password: oomoeyaij5Ahp6teipia
+    database: 0
+    timeout: 5s
+    lettuce:
+      pool:
+        min-idle: 100
+        max-idle: 100
+        max-active: 100
+        max-wait: 10s
+
+  kafka:
+    bootstrap-servers: 192.168.102.17:9092
+    #    bootstrap-servers: 127.0.0.1:9092
+    producer:
+      retries: 0
+      batch-size: 100000
+    consumer:
+      auto-offset-reset: earliest
+      max-poll-records: 100
+    listener:
+      concurrency: 1
+    topicName:
+      iotPropertyTranslate: IOT_PROPERTY_TRANSLATE
+
+
+logging:
+  config:
+    classpath: ./logback.xml
