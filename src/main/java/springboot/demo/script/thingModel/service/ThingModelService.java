@@ -292,8 +292,8 @@ public class ThingModelService {
             return false;
         }
 
-        if (thingModelExcel.getProject().length() > 16) {
-            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型名称不能超过16个字符");
+        if (thingModelExcel.getProject().length() > 32) {
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型名称不能超过32个字符");
 
             return false;
         }
@@ -304,8 +304,8 @@ public class ThingModelService {
             return false;
         }
 
-        if (thingModelExcel.getIdentifier().length() > 24) {
-            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型功能标识符不能超过24个字符");
+        if (thingModelExcel.getIdentifier().length() > 48) {
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型功能标识符不能超过48个字符");
 
             return false;
         }
@@ -316,20 +316,20 @@ public class ThingModelService {
             return false;
         }
 
-        if (thingModelExcel.getName().length() > 12) {
-            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型功能名称不能超过12个字符");
+        if (thingModelExcel.getName().length() > 24) {
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型功能名称不能超过24个字符");
 
             return false;
         }
 
-        if (!StringUtils.isEmpty(thingModelExcel.getExpectedValue()) && thingModelExcel.getExpectedValue().length() > 24) {
-            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型功能期望值不能超过24个字符");
+        if (!StringUtils.isEmpty(thingModelExcel.getExpectedValue()) && thingModelExcel.getExpectedValue().length() > 48) {
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型功能期望值不能超过48个字符");
 
             return false;
         }
 
-        if (!StringUtils.isEmpty(thingModelExcel.getUnits()) && thingModelExcel.getUnits().length() > 8) {
-            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型功能单位不能超过8个字符");
+        if (!StringUtils.isEmpty(thingModelExcel.getUnits()) && thingModelExcel.getUnits().length() > 16) {
+            ThingModelService.errorExcel.put(JsonUtil.toJson(thingModelExcel), "物模型功能单位不能超过16个字符");
 
             return false;
         }
@@ -400,12 +400,12 @@ public class ThingModelService {
                     String keyStr = key.toString();
                     String valueStr = value.toString();
 
-                    if (keyStr.length() > 8) {
-                        throw new RuntimeException("bool值key不能超过8个字符");
+                    if (keyStr.length() > 16) {
+                        throw new RuntimeException("bool值key不能超过16个字符");
                     }
 
-                    if (valueStr.length() > 12) {
-                        throw new RuntimeException("bool值value不能超过12个字符");
+                    if (valueStr.length() > 24) {
+                        throw new RuntimeException("bool值value不能超过24个字符");
                     }
 
                     Map<String, String> boolMap = new HashMap<>();
@@ -428,12 +428,12 @@ public class ThingModelService {
                     String keyStr = key.toString();
                     String valueStr = value.toString();
 
-                    if (keyStr.length() > 8) {
-                        throw new RuntimeException("枚举值key不能超过8个字符");
+                    if (keyStr.length() > 16) {
+                        throw new RuntimeException("枚举值key不能超过16个字符");
                     }
 
-                    if (valueStr.length() > 12) {
-                        throw new RuntimeException("枚举值value不能超过16个字符");
+                    if (valueStr.length() > 24) {
+                        throw new RuntimeException("枚举值value不能超过24个字符");
                     }
 
                     Map<String, String> boolMap = new HashMap<>();
