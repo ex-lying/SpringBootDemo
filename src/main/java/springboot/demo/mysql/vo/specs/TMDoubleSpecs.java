@@ -13,7 +13,7 @@ import springboot.demo.mysql.vo.ThingModelSpecs;
 public class TMDoubleSpecs extends ThingModelSpecs {
     Integer efficientNum;
 
-    Integer min;
+    Double min;
 
-    Integer max;
+    Double max;
 }

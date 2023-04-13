@@ -13,7 +13,7 @@ import springboot.demo.mysql.vo.ThingModelSpecs;
 public class TMFloatSpecs extends ThingModelSpecs {
     private Integer efficientNum;
 
-    Integer min;
+    Float min;
 
-    Integer max;
+    Float max;
 }
